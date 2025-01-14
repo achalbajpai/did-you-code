@@ -394,26 +394,104 @@ function App() {
               const dateToCompare = new Date(date);
               dateToCompare.setUTCHours(0, 0, 0, 0);
               const isToday = dateToCompare.getTime() === today.getTime();
+              const isPast = isValidDate(dateToCompare);
 
               return (
                 <div
                   key={index}
                   className={`
-                    aspect-square p-1 rounded-lg border
-                    ${isCurrentMonth ? 'border-green-500/20 bg-zinc-800/50' : 'border-transparent bg-transparent'}
+                    aspect-square p-0.5 sm:p-1 rounded-lg border relative group
+                    ${isCurrentMonth 
+                      ? 'border-green-500/20 bg-zinc-800/50 hover:bg-zinc-700/50' 
+                      : 'border-transparent bg-transparent'}
                     ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-zinc-800' : ''}
+                    ${!isPast ? 'opacity-50 cursor-not-allowed' : isPast && isCurrentMonth ? 'cursor-pointer' : ''}
+                    ${dateRange.start === dateStr ? 'bg-green-500/30 border-green-500 ring-2 ring-green-500 ring-offset-1 ring-offset-zinc-800' : ''}
+                    ${dateRange.end === dateStr ? 'bg-green-500/30 border-green-500 ring-2 ring-green-500 ring-offset-1 ring-offset-zinc-800' : ''}
+                    ${dateRange.start && dateRange.end && dateStr > dateRange.start && dateStr < dateRange.end ? 'bg-green-500/20 border-green-500/50' : ''}
                   `}
+                  onClick={() => {
+                    if (isPast && isCurrentMonth) {
+                      const clickedDate = formatDate(date);
+                      if (!dateRange.start) {
+                        setDateRange({ start: clickedDate, end: null });
+                        setAlert({
+                          message: 'Select another date to see hours between dates',
+                          type: 'info'
+                        });
+                      } else if (!dateRange.end) {
+                        const start = dateRange.start;
+                        const end = clickedDate;
+                        
+                        // Ensure dates are in correct order
+                        const [startDate, endDate] = start > end ? [end, start] : [start, end];
+                        
+                        if (!validateDateRange(startDate, endDate)) {
+                          setError('Date range cannot exceed one year');
+                          setDateRange({ start: null, end: null });
+                          return;
+                        }
+                        
+                        setDateRange({ start: startDate, end: endDate });
+                        const hours = getHoursBetweenDates(startDate, endDate);
+                        
+                        if (hours > 0) {
+                          setAlert({
+                            message: `You coded ${hours} hours between ${new Date(startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} and ${new Date(endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`,
+                            type: 'info'
+                          });
+                        } else {
+                          setAlert({
+                            message: 'No hours logged for the selected date range',
+                            type: 'info'
+                          });
+                        }
+                      } else {
+                        setDateRange({ start: clickedDate, end: null });
+                        setAlert({
+                          message: 'Select another date to see hours between dates',
+                          type: 'info'
+                        });
+                      }
+                      setSelectedDate(clickedDate);
+                      setShowDatePicker(false);
+                    }
+                  }}
                 >
                   <div className="text-center">
-                    <span className={`text-sm ${isCurrentMonth ? 'text-green-400' : 'text-green-400/30'}`}>
+                    <span className={`text-xs sm:text-sm ${isCurrentMonth ? 'text-green-400' : 'text-green-400/30'}`}>
                       {date.getDate()}
                     </span>
                     {isCurrentMonth && hours > 0 && (
-                      <div className="text-xs text-green-400 mt-1">
+                      <div className="text-[10px] sm:text-xs text-green-400 mt-0.5 sm:mt-1">
                         {hours}h
                       </div>
                     )}
                   </div>
+                  {isPast && isCurrentMonth && (
+                    <div className="absolute inset-0 hidden group-hover:flex items-center justify-center">
+                      {dateRange.start || dateRange.end ? (
+                        <div className="text-xs text-green-400 bg-zinc-800/95 px-2 py-1 rounded">
+                          Click to select range
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1 bg-zinc-800/95 items-center justify-center w-full p-1">
+                          {[1, 2, 4, 6, 8].map(h => (
+                            <button
+                              key={h}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickHourSelect(dateStr, h);
+                              }}
+                              className="text-xs bg-zinc-700 text-green-400 px-2 py-1.5 rounded hover:bg-zinc-600 active:bg-zinc-500 transition-colors w-full sm:w-12"
+                            >
+                              +{h}h
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -609,15 +687,19 @@ function App() {
                           : 'border-transparent bg-transparent'}
                         ${isToday ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-zinc-800' : ''}
                         ${!isPast ? 'opacity-50 cursor-not-allowed' : isPast && isCurrentMonth ? 'cursor-pointer' : ''}
-                        ${dateRange.start === dateStr ? 'bg-green-500/20 border-green-500' : ''}
-                        ${dateRange.end === dateStr ? 'bg-green-500/20 border-green-500' : ''}
-                        ${dateRange.start && dateRange.end && dateStr > dateRange.start && dateStr < dateRange.end ? 'bg-green-500/10' : ''}
+                        ${dateRange.start === dateStr ? 'bg-green-500/30 border-green-500 ring-2 ring-green-500 ring-offset-1 ring-offset-zinc-800' : ''}
+                        ${dateRange.end === dateStr ? 'bg-green-500/30 border-green-500 ring-2 ring-green-500 ring-offset-1 ring-offset-zinc-800' : ''}
+                        ${dateRange.start && dateRange.end && dateStr > dateRange.start && dateStr < dateRange.end ? 'bg-green-500/20 border-green-500/50' : ''}
                       `}
                       onClick={() => {
                         if (isPast && isCurrentMonth) {
                           const clickedDate = formatDate(date);
                           if (!dateRange.start) {
                             setDateRange({ start: clickedDate, end: null });
+                            setAlert({
+                              message: 'Select another date to see hours between dates',
+                              type: 'info'
+                            });
                           } else if (!dateRange.end) {
                             const start = dateRange.start;
                             const end = clickedDate;
@@ -647,6 +729,10 @@ function App() {
                             }
                           } else {
                             setDateRange({ start: clickedDate, end: null });
+                            setAlert({
+                              message: 'Select another date to see hours between dates',
+                              type: 'info'
+                            });
                           }
                           setSelectedDate(clickedDate);
                           setShowDatePicker(false);
@@ -664,19 +750,27 @@ function App() {
                         )}
                       </div>
                       {isPast && isCurrentMonth && (
-                        <div className="absolute inset-0 hidden group-hover:flex flex-col gap-1 bg-zinc-800/95 items-center justify-center">
-                          {[1, 2, 4, 6, 8].map(h => (
-                            <button
-                              key={h}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleQuickHourSelect(dateStr, h);
-                              }}
-                              className="text-xs bg-zinc-700 text-green-400 px-2 py-1 rounded hover:bg-zinc-600 transition-colors w-12"
-                            >
-                              +{h}h
-                            </button>
-                          ))}
+                        <div className="absolute inset-0 hidden group-hover:flex items-center justify-center">
+                          {dateRange.start || dateRange.end ? (
+                            <div className="text-xs text-green-400 bg-zinc-800/95 px-2 py-1 rounded">
+                              Click to select range
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1 bg-zinc-800/95 items-center justify-center w-full p-1">
+                              {[1, 2, 4, 6, 8].map(h => (
+                                <button
+                                  key={h}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleQuickHourSelect(dateStr, h);
+                                  }}
+                                  className="text-xs bg-zinc-700 text-green-400 px-2 py-1.5 rounded hover:bg-zinc-600 active:bg-zinc-500 transition-colors w-full sm:w-12"
+                                >
+                                  +{h}h
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -920,6 +1014,22 @@ function App() {
               </button>
             </div>
           )}
+        </div>
+      )}
+      {(dateRange.start || dateRange.end) && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+          <button
+            onClick={() => {
+              setDateRange({ start: null, end: null });
+              setAlert({
+                message: 'Date range selection cleared',
+                type: 'info'
+              });
+            }}
+            className="bg-zinc-800 text-green-400 px-4 py-2 rounded-lg shadow-lg border border-green-500/20 hover:bg-zinc-700 active:bg-zinc-600 transition-colors"
+          >
+            Clear Date Range
+          </button>
         </div>
       )}
     </div>
